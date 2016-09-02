@@ -12,12 +12,16 @@ namespace Kino
 
         #region Private properties
 
-        [SerializeField]
-        Shader _shader;
+        [SerializeField] Shader _shader;
 
         Material _material;
 
-        Queue<RenderTexture> _history;
+        RenderTexture _buffer0;
+        RenderTexture _buffer1;
+        RenderTexture _buffer2;
+        RenderTexture _buffer3;
+
+        int _frameCount;
 
         #endregion
 
@@ -28,36 +32,63 @@ namespace Kino
             var shader = Shader.Find("Hidden/Kino/Slitscan");
             _material = new Material(shader);
             _material.hideFlags = HideFlags.DontSave;
-
-            _history = new Queue<RenderTexture>();
         }
 
         void OnDisable()
         {
-            DestroyImmediate(_material);
-            _material = null;
+            if (_buffer0 != null) RenderTexture.ReleaseTemporary(_buffer0);
+            if (_buffer1 != null) RenderTexture.ReleaseTemporary(_buffer1);
+            if (_buffer2 != null) RenderTexture.ReleaseTemporary(_buffer2);
+            if (_buffer3 != null) RenderTexture.ReleaseTemporary(_buffer3);
 
-            while (_history.Count > 0)
-                RenderTexture.ReleaseTemporary(_history.Dequeue());
+            _buffer0 = _buffer1 = _buffer2 = _buffer3 = null;
+        }
+
+        void OnDestroy()
+        {
+            if (Application.isPlaying)
+                Destroy(_material);
+            else
+                DestroyImmediate(_material);
+
+            _material = null;
         }
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
-            var rt = RenderTexture.GetTemporary(source.width, source.height);
-            Graphics.Blit(source, rt);
-            _history.Enqueue(rt);
-
-            var ox = 0.0f;
-            foreach (var t in _history)
+            if (_frameCount == 8)
             {
-                _material.SetFloat("_Origin", ox);
-                _material.SetFloat("_Height", 1.0f / _history.Count);
-                Graphics.Blit(t, destination, _material, 0);
-                ox += 1.0f / _history.Count;
+                var temp = _buffer3;
+                _buffer3 = _buffer2;
+                _buffer2 = _buffer1;
+                _buffer1 = _buffer0;
+
+                if (temp == null)
+                    _buffer0 = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.R8);
+                else
+                    _buffer0 = temp;
+
+                _frameCount = 0;
             }
 
-            while (_history.Count > 120)
-                RenderTexture.ReleaseTemporary(_history.Dequeue());
+            var oldBuffer = _buffer0;
+            _buffer0 = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.R8);
+
+            _material.SetTexture("_CurrentFrame", source);
+            _material.SetTexture("_SourceTexture", oldBuffer);
+            _material.SetFloat("_BitIndex", _frameCount);
+
+            Graphics.Blit(null, _buffer0, _material, 0);
+            RenderTexture.ReleaseTemporary(oldBuffer);
+
+            _material.SetTexture("_Texture0", _buffer0);
+            _material.SetTexture("_Texture1", _buffer1);
+            _material.SetTexture("_Texture2", _buffer2);
+            _material.SetTexture("_Texture3", _buffer3);
+
+            Graphics.Blit(null, destination, _material, 1);
+
+            _frameCount++;
         }
 
         #endregion
