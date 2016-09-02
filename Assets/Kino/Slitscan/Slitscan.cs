@@ -56,7 +56,7 @@ namespace Kino
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
-            if (_frameCount == 8)
+            if (_frameCount == 32)
             {
                 var temp = _buffer3;
                 _buffer3 = _buffer2;
@@ -64,19 +64,25 @@ namespace Kino
                 _buffer1 = _buffer0;
 
                 if (temp == null)
-                    _buffer0 = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.R8);
+                    _buffer0 = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default);
                 else
                     _buffer0 = temp;
+
+                _buffer0.filterMode = FilterMode.Point;
+                _buffer0.wrapMode = TextureWrapMode.Clamp;
 
                 _frameCount = 0;
             }
 
             var oldBuffer = _buffer0;
-            _buffer0 = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.R8);
+            _buffer0 = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.Default);
+
+            _buffer0.filterMode = FilterMode.Point;
+            _buffer0.wrapMode = TextureWrapMode.Clamp;
 
             _material.SetTexture("_CurrentFrame", source);
             _material.SetTexture("_SourceTexture", oldBuffer);
-            _material.SetFloat("_BitIndex", _frameCount);
+            _material.SetFloat("_BitOffset", _frameCount);
 
             Graphics.Blit(null, _buffer0, _material, 0);
             RenderTexture.ReleaseTemporary(oldBuffer);
