@@ -7,6 +7,49 @@ namespace Kino
     [RequireComponent(typeof(Camera))]
     public class Slitscan : MonoBehaviour
     {
+        #region Frame storage class
+
+        class Frame
+        {
+            public RenderTexture lumaTexture;
+            public RenderTexture chromaTexture;
+
+            public void Prepare(int width, int height)
+            {
+                if (lumaTexture != null)
+                    if (lumaTexture.width != width || lumaTexture.height != height)
+                        Release();
+
+                if (lumaTexture == null)
+                {
+                    lumaTexture = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.R8);
+                    lumaTexture.filterMode = FilterMode.Point;
+                    lumaTexture.wrapMode = TextureWrapMode.Clamp;
+                }
+
+                if (chromaTexture == null)
+                {
+                    chromaTexture = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.R8);
+                    chromaTexture.filterMode = FilterMode.Point;
+                    chromaTexture.wrapMode = TextureWrapMode.Clamp;
+                }
+            }
+
+            public void Release()
+            {
+                if (lumaTexture != null)
+                    RenderTexture.ReleaseTemporary(lumaTexture);
+
+                if (chromaTexture != null)
+                    RenderTexture.ReleaseTemporary(chromaTexture);
+
+                lumaTexture = null;
+                chromaTexture = null;
+            }
+        }
+
+        #endregion
+
         #region Private properties
 
         [SerializeField, Range(16, 128)] int _slices = 128;
@@ -16,7 +59,34 @@ namespace Kino
 
         Material _material;
 
-        Queue<RenderTexture> _history;
+        Frame[] _history;
+        int _lastFrame = -1;
+
+        RenderBuffer[] _mrt;
+
+        #endregion
+
+        #region Private functions
+
+        void AppendFrame(RenderTexture source)
+        {
+            _lastFrame = (_lastFrame + 1) % _slices;
+
+            var frame = _history[_lastFrame];
+            frame.Prepare(source.width, source.height);
+
+            _mrt[0] = frame.lumaTexture.colorBuffer;
+            _mrt[1] = frame.chromaTexture.colorBuffer;
+
+            Graphics.SetRenderTarget(_mrt, frame.lumaTexture.depthBuffer);
+            Graphics.Blit(source, _material, 0);
+        }
+
+        Frame GetFrameRelative(int offset)
+        {
+            var i = (_lastFrame + offset + _slices) % _slices;
+            return _history[i];
+        }
 
         #endregion
 
@@ -30,18 +100,21 @@ namespace Kino
                 _material.hideFlags = HideFlags.HideAndDontSave;
             }
 
-            _history = new Queue<RenderTexture>();
+            if (_history == null)
+            {
+                _history = new Frame[_slices];
+                for (var i = 0; i < _slices; i++)
+                    _history[i] = new Frame();
+            }
 
-            for (var i = 0; i < _slices; i++)
-                _history.Enqueue(null);
+            if (_mrt == null)
+                _mrt = new RenderBuffer[2];
         }
 
         void OnDisable()
         {
-            while (_history.Count > 0)
-                RenderTexture.ReleaseTemporary(_history.Dequeue());
-
-            _history = null;
+            foreach (var frame in _history)
+                frame.Release();
         }
 
         void OnDestroy()
@@ -56,35 +129,37 @@ namespace Kino
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
-            var rt = RenderTexture.GetTemporary(source.width, source.height, 0, RenderTextureFormat.ARGB32);
-            Graphics.Blit(source, rt);
-            _history.Enqueue(rt);
+            AppendFrame(source);
 
             RenderTexture.active = destination;
 
-            var textures = _history.ToArray();
-            System.Array.Reverse(textures);
-
-            var sliceWidth = 8.0f / _slices;
+            var sliceWidth = 4.0f / _slices;
             _material.SetFloat("_SliceScale", sliceWidth);
 
-            for (var i = 0; i < _slices; i += 8)
+            for (var i = 0; i < _slices; i += 4)
             {
-                _material.SetTexture("_Texture0", textures[i + 0]);
-                _material.SetTexture("_Texture1", textures[i + 1]);
-                _material.SetTexture("_Texture2", textures[i + 2]);
-                _material.SetTexture("_Texture3", textures[i + 3]);
-                _material.SetTexture("_Texture4", textures[i + 4]);
-                _material.SetTexture("_Texture5", textures[i + 5]);
-                _material.SetTexture("_Texture6", textures[i + 6]);
-                _material.SetTexture("_Texture7", textures[i + 7]);
+                var frame0 = GetFrameRelative(i + 0);
+                var frame1 = GetFrameRelative(i + 1);
+                var frame2 = GetFrameRelative(i + 2);
+                var frame3 = GetFrameRelative(i + 3);
+
+                _material.SetTexture("_MainTex", source);
+
+                _material.SetTexture("_LumaTexture0", frame0.lumaTexture);
+                _material.SetTexture("_LumaTexture1", frame1.lumaTexture);
+                _material.SetTexture("_LumaTexture2", frame2.lumaTexture);
+                _material.SetTexture("_LumaTexture3", frame3.lumaTexture);
+
+                _material.SetTexture("_ChromaTexture0", frame0.chromaTexture);
+                _material.SetTexture("_ChromaTexture1", frame1.chromaTexture);
+                _material.SetTexture("_ChromaTexture2", frame2.chromaTexture);
+                _material.SetTexture("_ChromaTexture3", frame3.chromaTexture);
+
                 _material.SetFloat("_SliceOffset", 2.0f * i / _slices + sliceWidth - 1);
-                _material.SetPass(0);
+                _material.SetPass(1);
+
                 Graphics.DrawMeshNow(_mesh, Matrix4x4.identity);
             }
-
-            while (_history.Count > _slices)
-                RenderTexture.ReleaseTemporary(_history.Dequeue());
         }
 
         #endregion
