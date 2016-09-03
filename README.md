@@ -1,12 +1,46 @@
 Kino/Slitscan
--------------
+=============
 
-![gif](http://67.media.tumblr.com/5e4e24c2ef13f0f6e39fc7b6b366056a/tumblr_o7sil9CFHK1qio469o1_400.gif)
-![gif](http://67.media.tumblr.com/5bb929a966d672e83dd99c87be9dbf68/tumblr_o7sil9CFHK1qio469o2_400.gif)
+*Slitscan* is an image effect for Unity that simulates [slit-scan effect]
+[Wikipedia].
 
-This is a prototype of a slit-scan image effect for Unity.
+![gif](http://67.media.tumblr.com/ac4871c151023e1297f505198dd3c654/tumblr_ocxowaWfD01qio469o1_320.gif)
+![gif](http://67.media.tumblr.com/89ff943410b2ec25cab1f67120b9461a/tumblr_ocxowaWfD01qio469o2_320.gif)
+![gif](http://66.media.tumblr.com/0f5b9b9a8134b941837c28f9d8e195fc/tumblr_ocxowaWfD01qio469o3_320.gif)
 
-**Note:** This is just a prototype made for verifying the basic concept. It
-hasn't been optimized yet -- actually, it spends an unreasonable amount of
-memory and GPU processing time! It's not recommended to use in a real
-production.
+System Requirement
+------------------
+
+Unity 5.4 or later
+
+
+About Performance
+-----------------
+
+*Slitscan* is quite GPU intensive despite its simpleness. It requires about
+300 MiB of video memory to store frame history with 1920x1080 resolution.
+Also the draw call count will be inceased by 30.
+
+License
+-------
+
+Copyright (C) 2016 Keijiro Takahashi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+[Wikipedia]: https://en.wikipedia.org/wiki/Slit-scan_photography
