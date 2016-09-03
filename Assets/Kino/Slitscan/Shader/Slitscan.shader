@@ -41,14 +41,18 @@ Shader "Hidden/Kino/Slitscan"
     sampler2D _CoTexture2;
     sampler2D _CoTexture3;
 
+    //
     // Color space conversion shader (RGB => Luminance)
+    //
     fixed frag_encode_y(v2f_img i) : SV_Target
     {
         fixed4 src = tex2D(_MainTex, i.uv);
         return dot(src.rgb, fixed3(0.25, 0.5, 0.25));
     }
 
+    //
     // Color space conversion shader (RGB => chrominance)
+    //
     struct ChrominanceOutput
     {
         fixed cg : SV_Target0;
@@ -64,11 +68,13 @@ Shader "Hidden/Kino/Slitscan"
         return o;
     }
 
-    // Slice rendering shader
+    //
+    // Slice scan shader
+    //
     struct appdata
     {
         float4 vertex : POSITION;
-        float2 uv : TEXCOORD0;
+        float2 texcoord : TEXCOORD0;
     };
 
     struct v2f
@@ -89,7 +95,7 @@ Shader "Hidden/Kino/Slitscan"
         return fixed3(temp + co, y + cg, temp - co);
     }
 
-    v2f vert_decode(appdata v)
+    v2f vert_scan(appdata v)
     {
         float x = v.vertex.x * 2;
         float y = v.vertex.y * 2 + 1;
@@ -98,11 +104,11 @@ Shader "Hidden/Kino/Slitscan"
 
         v2f o;
         o.vertex = float4(x, y, 1, 1);
-        o.texcoord = float3(v.uv.xy, y * 0.5 + 0.5);
+        o.texcoord = float3(v.texcoord.xy, y * 0.5 + 0.5);
         return o;
     }
 
-    half4 frag_decode(v2f i) : SV_Target
+    half4 frag_scan(v2f i) : SV_Target
     {
         float2 uv = i.texcoord.xz;
         float selector = i.texcoord.y * 5;
@@ -143,8 +149,8 @@ Shader "Hidden/Kino/Slitscan"
         {
             Blend SrcAlpha OneMinusSrcAlpha
             CGPROGRAM
-            #pragma vertex vert_decode
-            #pragma fragment frag_decode
+            #pragma vertex vert_scan
+            #pragma fragment frag_scan
             #pragma target 3.0
             ENDCG
         }

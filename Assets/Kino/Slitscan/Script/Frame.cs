@@ -4,7 +4,14 @@ namespace Kino
 {
     public partial class Slitscan
     {
+        //
         // Frame storage class
+        //
+        // Compresses and stores a frame image. The memory footprint of the
+        // image is reduced to 9 bit/pixel with using the chroma subsampling
+        // technique. If the frame buffer is using 1920 x 1080 x 32 bpp,
+        // the footprint is reduced from 7.91 MiB to 2.22 MiB.
+        //
         class Frame
         {
             public RenderTexture yTexture;

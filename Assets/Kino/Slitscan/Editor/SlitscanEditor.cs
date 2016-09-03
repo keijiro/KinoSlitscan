@@ -7,18 +7,18 @@ namespace Kino
     [CustomEditor(typeof(Slitscan))]
     public class SlitscanEditor : Editor
     {
-        SerializedProperty _slices;
+        SerializedProperty _sliceCount;
 
         void OnEnable()
         {
-            _slices = serializedObject.FindProperty("_slices");
+            _sliceCount = serializedObject.FindProperty("_sliceCount");
         }
 
         public override void OnInspectorGUI()
         {
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(_slices);
+            EditorGUILayout.PropertyField(_sliceCount);
 
             serializedObject.ApplyModifiedProperties();
         }

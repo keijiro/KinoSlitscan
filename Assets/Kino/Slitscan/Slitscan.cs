@@ -8,9 +8,15 @@ namespace Kino
     {
         #region Editable properties
 
-        const int kMaxSlices = 128;
+        const int kMaxSliceCount = 128;
 
-        [SerializeField, Range(16, kMaxSlices)] int _slices = 128;
+        [SerializeField, Range(16, kMaxSliceCount)]
+        int _sliceCount = 128;
+
+        public int sliceCount {
+            get { return _sliceCount; }
+            set { _sliceCount = value; }
+        }
 
         #endregion
 
@@ -32,13 +38,17 @@ namespace Kino
 
         void AppendFrame(RenderTexture source)
         {
-            _lastFrame = (_lastFrame + 1) % kMaxSlices;
+            // Advance the counter.
+            _lastFrame = (_lastFrame + 1) % kMaxSliceCount;
 
+            // Prepare the frame storage.
             var frame = _history[_lastFrame];
             frame.Prepare(source.width, source.height);
 
+            // Extract luminance.
             Graphics.Blit(source, frame.yTexture, _material, 0);
 
+            // Extract chrominance.
             _mrt[0] = frame.cgTexture.colorBuffer;
             _mrt[1] = frame.coTexture.colorBuffer;
             Graphics.SetRenderTarget(_mrt, frame.cgTexture.depthBuffer);
@@ -47,8 +57,12 @@ namespace Kino
 
         Frame GetFrameRelative(int offset)
         {
-            var i = (_lastFrame + offset + kMaxSlices + 1) % kMaxSlices;
-            return _history[i];
+            var i = (_lastFrame + offset + kMaxSliceCount) % kMaxSliceCount;
+
+            if (_history[i].yTexture != null)
+                return _history[i];
+            else
+                return _history[_lastFrame];
         }
 
         #endregion
@@ -65,8 +79,8 @@ namespace Kino
 
             if (_history == null)
             {
-                _history = new Frame[kMaxSlices];
-                for (var i = 0; i < kMaxSlices; i++)
+                _history = new Frame[kMaxSliceCount];
+                for (var i = 0; i < kMaxSliceCount; i++)
                     _history[i] = new Frame();
             }
 
@@ -92,19 +106,28 @@ namespace Kino
 
         void OnRenderImage(RenderTexture source, RenderTexture destination)
         {
+            // Append this frame to the history buffer.
             AppendFrame(source);
 
+            // Simply blit the source if there is nothing to do.
+            var slices = (_sliceCount / 4) * 4;
+            if (slices <= 0)
+            {
+                Graphics.Blit(source, destination);
+                return;
+            }
+
+            // Draw slices on the destination.
             RenderTexture.active = destination;
 
-            var slices = Mathf.Max(_slices / 4, 1) * 4;
             _material.SetFloat("_SliceWidth", 1.0f / slices);
 
             for (var i = 0; i < slices; i += 4)
             {
-                var frame0 = GetFrameRelative(i + 0);
-                var frame1 = GetFrameRelative(i + 1);
-                var frame2 = GetFrameRelative(i + 2);
-                var frame3 = GetFrameRelative(i + 3);
+                var frame0 = GetFrameRelative(i + 1);
+                var frame1 = GetFrameRelative(i + 2);
+                var frame2 = GetFrameRelative(i + 3);
+                var frame3 = GetFrameRelative(i + 4);
 
                 _material.SetTexture("_MainTex", source);
 
