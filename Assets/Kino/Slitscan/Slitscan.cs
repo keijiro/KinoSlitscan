@@ -1,58 +1,18 @@
 using UnityEngine;
-using System.Collections.Generic;
 
 namespace Kino
 {
     [ExecuteInEditMode]
     [RequireComponent(typeof(Camera))]
-    public class Slitscan : MonoBehaviour
+    public partial class Slitscan : MonoBehaviour
     {
-        #region Frame storage class
+        #region Editable properties
 
-        class Frame
-        {
-            public RenderTexture lumaTexture;
-            public RenderTexture chromaTexture;
-
-            public void Prepare(int width, int height)
-            {
-                if (lumaTexture != null)
-                    if (lumaTexture.width != width || lumaTexture.height != height)
-                        Release();
-
-                if (lumaTexture == null)
-                {
-                    lumaTexture = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.R8);
-                    lumaTexture.filterMode = FilterMode.Point;
-                    lumaTexture.wrapMode = TextureWrapMode.Clamp;
-                }
-
-                if (chromaTexture == null)
-                {
-                    chromaTexture = RenderTexture.GetTemporary(width/2, height/2, 0, RenderTextureFormat.R8);
-                    chromaTexture.filterMode = FilterMode.Point;
-                    chromaTexture.wrapMode = TextureWrapMode.Clamp;
-                }
-            }
-
-            public void Release()
-            {
-                if (lumaTexture != null)
-                    RenderTexture.ReleaseTemporary(lumaTexture);
-
-                if (chromaTexture != null)
-                    RenderTexture.ReleaseTemporary(chromaTexture);
-
-                lumaTexture = null;
-                chromaTexture = null;
-            }
-        }
+        [SerializeField, Range(16, 128)] int _slices = 128;
 
         #endregion
 
-        #region Private properties
-
-        [SerializeField, Range(16, 128)] int _slices = 128;
+        #region Private members
 
         [SerializeField] Mesh _mesh;
         [SerializeField] Shader _shader;
@@ -75,8 +35,12 @@ namespace Kino
             var frame = _history[_lastFrame];
             frame.Prepare(source.width, source.height);
 
-            Graphics.Blit(source, frame.lumaTexture, _material, 0);
-            Graphics.Blit(source, frame.chromaTexture, _material, 1);
+            Graphics.Blit(source, frame.yTexture, _material, 0);
+
+            _mrt[0] = frame.cgTexture.colorBuffer;
+            _mrt[1] = frame.coTexture.colorBuffer;
+            Graphics.SetRenderTarget(_mrt, frame.cgTexture.depthBuffer);
+            Graphics.Blit(source, _material, 1);
         }
 
         Frame GetFrameRelative(int offset)
@@ -142,15 +106,20 @@ namespace Kino
 
                 _material.SetTexture("_MainTex", source);
 
-                _material.SetTexture("_LumaTexture0", frame0.lumaTexture);
-                _material.SetTexture("_LumaTexture1", frame1.lumaTexture);
-                _material.SetTexture("_LumaTexture2", frame2.lumaTexture);
-                _material.SetTexture("_LumaTexture3", frame3.lumaTexture);
+                _material.SetTexture("_YTexture0", frame0.yTexture);
+                _material.SetTexture("_YTexture1", frame1.yTexture);
+                _material.SetTexture("_YTexture2", frame2.yTexture);
+                _material.SetTexture("_YTexture3", frame3.yTexture);
 
-                _material.SetTexture("_ChromaTexture0", frame0.chromaTexture);
-                _material.SetTexture("_ChromaTexture1", frame1.chromaTexture);
-                _material.SetTexture("_ChromaTexture2", frame2.chromaTexture);
-                _material.SetTexture("_ChromaTexture3", frame3.chromaTexture);
+                _material.SetTexture("_CgTexture0", frame0.cgTexture);
+                _material.SetTexture("_CgTexture1", frame1.cgTexture);
+                _material.SetTexture("_CgTexture2", frame2.cgTexture);
+                _material.SetTexture("_CgTexture3", frame3.cgTexture);
+
+                _material.SetTexture("_CoTexture0", frame0.coTexture);
+                _material.SetTexture("_CoTexture1", frame1.coTexture);
+                _material.SetTexture("_CoTexture2", frame2.coTexture);
+                _material.SetTexture("_CoTexture3", frame3.coTexture);
 
                 _material.SetFloat("_SliceOffset", 2.0f * i / _slices + sliceWidth - 1);
                 _material.SetPass(2);

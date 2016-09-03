@@ -3,14 +3,21 @@ Shader "Hidden/Kino/Slitscan"
     Properties
     {
         _MainTex("", 2D) = "" {}
-        _LumaTexture0("", 2D) = "" {}
-        _LumaTexture1("", 2D) = "" {}
-        _LumaTexture2("", 2D) = "" {}
-        _LumaTexture3("", 2D) = "" {}
-        _ChromaTexture0("", 2D) = "" {}
-        _ChromaTexture1("", 2D) = "" {}
-        _ChromaTexture2("", 2D) = "" {}
-        _ChromaTexture3("", 2D) = "" {}
+
+        _YTexture0("", 2D) = "" {}
+        _YTexture1("", 2D) = "" {}
+        _YTexture2("", 2D) = "" {}
+        _YTexture3("", 2D) = "" {}
+
+        _CgTexture0("", 2D) = "" {}
+        _CgTexture1("", 2D) = "" {}
+        _CgTexture2("", 2D) = "" {}
+        _CgTexture3("", 2D) = "" {}
+
+        _CoTexture0("", 2D) = "" {}
+        _CoTexture1("", 2D) = "" {}
+        _CoTexture2("", 2D) = "" {}
+        _CoTexture3("", 2D) = "" {}
     }
 
     CGINCLUDE
@@ -18,135 +25,46 @@ Shader "Hidden/Kino/Slitscan"
     #include "UnityCG.cginc"
 
     sampler2D _MainTex;
-    float4 _MainTex_TexelSize;
 
-    sampler2D _LumaTexture0;
-    sampler2D _LumaTexture1;
-    sampler2D _LumaTexture2;
-    sampler2D _LumaTexture3;
+    sampler2D _YTexture0;
+    sampler2D _YTexture1;
+    sampler2D _YTexture2;
+    sampler2D _YTexture3;
 
-    sampler2D _ChromaTexture0;
-    sampler2D _ChromaTexture1;
-    sampler2D _ChromaTexture2;
-    sampler2D _ChromaTexture3;
+    sampler2D _CgTexture0;
+    sampler2D _CgTexture1;
+    sampler2D _CgTexture2;
+    sampler2D _CgTexture3;
 
-    // MRT output struct for the compressor
-    struct CompressorOutput
+    sampler2D _CoTexture0;
+    sampler2D _CoTexture1;
+    sampler2D _CoTexture2;
+    sampler2D _CoTexture3;
+
+    // Color space conversion shader (RGB => Luminance)
+    fixed frag_encode_y(v2f_img i) : SV_Target
     {
-        half4 luma : SV_Target0;
-        half4 chroma : SV_Target1;
+        fixed4 src = tex2D(_MainTex, i.uv);
+        return dot(src.rgb, fixed3(0.25, 0.5, 0.25));
+    }
+
+    // Color space conversion shader (RGB => chrominance)
+    struct ChrominanceOutput
+    {
+        fixed cg : SV_Target0;
+        fixed co : SV_Target1;
     };
 
-    // Frame compression fragment shader
-    CompressorOutput frag_encode(v2f_img i)
+    ChrominanceOutput frag_encode_cgco(v2f_img i)
     {
-        float sw = _ScreenParams.x;     // Screen width
-        float pw = _ScreenParams.z - 1; // Pixel width
-
-        // RGB to YCbCr convertion matrix
-        const half3 kY  = half3( 0.299   ,  0.587   ,  0.114   );
-        const half3 kCB = half3(-0.168736, -0.331264,  0.5     );
-        const half3 kCR = half3( 0.5     , -0.418688, -0.081312);
-
-        // 0: even column, 1: odd column
-        half odd = frac(i.uv.x * sw * 0.5) > 0.5;
-
-        // Calculate UV for chroma componetns.
-        // It's between the even and odd columns.
-        float2 uv_c = i.uv.xy;
-        uv_c.x = (floor(uv_c.x * sw * 0.5) * 2 + 1) * pw;
-
-        // Sample the source texture.
-        half3 rgb_y = tex2D(_MainTex, i.uv).rgb;
-        half3 rgb_c = tex2D(_MainTex, uv_c).rgb;
-
-    #if !UNITY_COLORSPACE_GAMMA
-        rgb_y = LinearToGammaSpace(rgb_y);
-        rgb_c = LinearToGammaSpace(rgb_c);
-    #endif
-
-        // Convertion and subsampling
-        CompressorOutput o;
-        o.luma = dot(kY, rgb_y);
-        o.chroma = dot(lerp(kCB, kCR, odd), rgb_c) + 0.5;
+        fixed4 src = tex2D(_MainTex, i.uv);
+        ChrominanceOutput o;
+        o.cg = dot(src.rgb, fixed3(-0.25, 0.5, -0.25)) + 0.5;
+        o.co = (src.r - src.b) * 0.5 + 0.5;
         return o;
     }
 
-    fixed4 frag_encode1(v2f_img i) : SV_Target
-    {
-        float sw = _ScreenParams.x;     // Screen width
-        float pw = _ScreenParams.z - 1; // Pixel width
-
-        // RGB to YCbCr convertion matrix
-        const half3 kY  = half3( 0.299   ,  0.587   ,  0.114   );
-        const half3 kCB = half3(-0.168736, -0.331264,  0.5     );
-        const half3 kCR = half3( 0.5     , -0.418688, -0.081312);
-
-        // 0: even column, 1: odd column
-        half odd = frac(i.uv.x * sw * 0.5) > 0.5;
-
-        // Calculate UV for chroma componetns.
-        // It's between the even and odd columns.
-        float2 uv_c = i.uv.xy;
-        uv_c.x = (floor(uv_c.x * sw * 0.5) * 2 + 1) * pw;
-
-        // Sample the source texture.
-        half3 rgb_y = tex2D(_MainTex, i.uv).rgb;
-        half3 rgb_c = tex2D(_MainTex, uv_c).rgb;
-
-    #if !UNITY_COLORSPACE_GAMMA
-        rgb_y = LinearToGammaSpace(rgb_y);
-        rgb_c = LinearToGammaSpace(rgb_c);
-    #endif
-
-        // Convertion and subsampling
-        return dot(kY, rgb_y);
-    }
-
-    fixed4 frag_encode2(v2f_img i) : SV_Target
-    {
-        float sw = _ScreenParams.x;     // Screen width
-        float pw = _ScreenParams.z - 1; // Pixel width
-
-        sw /= 2;
-        pw *= 2;
-
-        // RGB to YCbCr convertion matrix
-        const half3 kY  = half3( 0.299   ,  0.587   ,  0.114   );
-        const half3 kCB = half3(-0.168736, -0.331264,  0.5     );
-        const half3 kCR = half3( 0.5     , -0.418688, -0.081312);
-
-        // 0: even column, 1: odd column
-        half odd = frac(i.uv.x * sw * 0.5) > 0.5;
-
-        // Calculate UV for chroma componetns.
-        // It's between the even and odd columns.
-        float2 uv_c = i.uv.xy;
-        uv_c.x = (floor(uv_c.x * sw * 0.5) * 2 + 1) * pw;
-
-        // Sample the source texture.
-        half3 rgb_y = tex2D(_MainTex, i.uv).rgb;
-        half3 rgb_c = tex2D(_MainTex, uv_c).rgb;
-
-    #if !UNITY_COLORSPACE_GAMMA
-        rgb_y = LinearToGammaSpace(rgb_y);
-        rgb_c = LinearToGammaSpace(rgb_c);
-    #endif
-
-        // Convertion and subsampling
-        return dot(lerp(kCB, kCR, odd), rgb_c) + 0.5;
-    }
-
-    // Sample luma-chroma textures and convert to RGB
-    half3 DecodeHistory(float2 uvLuma, float2 uvCb, float2 uvCr, sampler2D lumaTex, sampler2D chromaTex)
-    {
-        half y = tex2D(lumaTex, uvLuma).r;
-        half cb = tex2D(chromaTex, uvCb).r - 0.5;
-        half cr = tex2D(chromaTex, uvCr).r - 0.5;
-        return y + half3(1.402 * cr, -0.34414 * cb - 0.71414 * cr, 1.772 * cb);
-    }
-
-    //
+    // Slice rendering shader
     struct appdata
     {
         float4 vertex : POSITION;
@@ -156,60 +74,46 @@ Shader "Hidden/Kino/Slitscan"
     struct v2f
     {
         float4 vertex : SV_POSITION;
-        float2 uv : TEXCOORD0;
-        float selector : TEXCOORD1;
+        float3 texcoord : TEXCOORD0;
     };
 
     float _SliceScale;
     float _SliceOffset;
 
+    fixed3 SampleYCgCo(float2 uv, sampler2D yTex, sampler2D cgTex, sampler2D coTex)
+    {
+        fixed y = tex2D(yTex, uv).r;
+        fixed cg = tex2D(cgTex, uv).r - 0.5;
+        fixed co = tex2D(coTex, uv).r - 0.5;
+        fixed temp = y - cg;
+        return fixed3(temp + co, y + cg, temp - co);
+    }
+
     v2f vert_decode(appdata v)
     {
-        v2f o;
-
         float x = v.vertex.x * 2;
         float y = v.vertex.y * 2 * _SliceScale + _SliceOffset;
+
+        v2f o;
         o.vertex = float4(x, y, 1, 1);
-
-        o.uv = float2(v.uv.x, y / 2 + 0.5);
-        o.selector = v.uv.y;
-
+        o.texcoord = float3(v.uv.xy, y * 0.5 + 0.5);
         return o;
     }
 
-    //
     half4 frag_decode(v2f i) : SV_Target
     {
-        float selector = i.selector * 4;
+        float2 uv = i.texcoord.xz;
+        float selector = i.texcoord.y * 4;
 
-        float sw = _MainTex_TexelSize.z; // Texture width
-        float pw = _MainTex_TexelSize.x; // Texel width
+        fixed3 c0 = SampleYCgCo(uv, _YTexture0, _CgTexture0, _CoTexture0);
+        fixed3 c1 = SampleYCgCo(uv, _YTexture1, _CgTexture1, _CoTexture1);
+        fixed3 c2 = SampleYCgCo(uv, _YTexture2, _CgTexture2, _CoTexture2);
+        fixed3 c3 = SampleYCgCo(uv, _YTexture3, _CgTexture3, _CoTexture3);
 
-        sw /= 2;
-        pw *= 2;
-
-        // UV for luma
-        float2 uvLuma = i.uv;
-
-        // UV for Cb (even columns)
-        float2 uvCb = i.uv;
-        uvCb.x = (floor(uvCb.x * sw * 0.5) * 2 + 0.5) * pw;
-
-        // UV for Cr (even columns)
-        float2 uvCr = uvCb;
-        uvCr.x += pw;
-
-        half3 acc;
-        acc =           DecodeHistory(uvLuma, uvCb, uvCr, _LumaTexture0, _ChromaTexture0);
-        acc = lerp(acc, DecodeHistory(uvLuma, uvCb, uvCr, _LumaTexture1, _ChromaTexture1), selector > 1);
-        acc = lerp(acc, DecodeHistory(uvLuma, uvCb, uvCr, _LumaTexture2, _ChromaTexture2), selector > 2);
-        acc = lerp(acc, DecodeHistory(uvLuma, uvCb, uvCr, _LumaTexture3, _ChromaTexture3), selector > 3);
-
-#if !UNITY_COLORSPACE_GAMMA
-        acc = GammaToLinearSpace(acc);
-#endif
-
-        return half4(acc, 1);
+        fixed3 color = lerp(c0, c1, selector > 1);
+        color = lerp(color, c2, selector > 2);
+        color = lerp(color, c3, selector > 3);
+        return half4(color, 1);
     }
 
     ENDCG
@@ -220,25 +124,22 @@ Shader "Hidden/Kino/Slitscan"
         Pass
         {
             CGPROGRAM
-            #pragma multi_compile _ UNITY_COLORSPACE_GAMMA
             #pragma vertex vert_img
-            #pragma fragment frag_encode1
+            #pragma fragment frag_encode_y
             #pragma target 3.0
             ENDCG
         }
         Pass
         {
             CGPROGRAM
-            #pragma multi_compile _ UNITY_COLORSPACE_GAMMA
             #pragma vertex vert_img
-            #pragma fragment frag_encode2
+            #pragma fragment frag_encode_cgco
             #pragma target 3.0
             ENDCG
         }
         Pass
         {
             CGPROGRAM
-            #pragma multi_compile _ UNITY_COLORSPACE_GAMMA
             #pragma vertex vert_decode
             #pragma fragment frag_decode
             #pragma target 3.0
