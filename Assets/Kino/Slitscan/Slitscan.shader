@@ -72,6 +72,71 @@ Shader "Hidden/Kino/Slitscan"
         return o;
     }
 
+    fixed4 frag_encode1(v2f_img i) : SV_Target
+    {
+        float sw = _ScreenParams.x;     // Screen width
+        float pw = _ScreenParams.z - 1; // Pixel width
+
+        // RGB to YCbCr convertion matrix
+        const half3 kY  = half3( 0.299   ,  0.587   ,  0.114   );
+        const half3 kCB = half3(-0.168736, -0.331264,  0.5     );
+        const half3 kCR = half3( 0.5     , -0.418688, -0.081312);
+
+        // 0: even column, 1: odd column
+        half odd = frac(i.uv.x * sw * 0.5) > 0.5;
+
+        // Calculate UV for chroma componetns.
+        // It's between the even and odd columns.
+        float2 uv_c = i.uv.xy;
+        uv_c.x = (floor(uv_c.x * sw * 0.5) * 2 + 1) * pw;
+
+        // Sample the source texture.
+        half3 rgb_y = tex2D(_MainTex, i.uv).rgb;
+        half3 rgb_c = tex2D(_MainTex, uv_c).rgb;
+
+    #if !UNITY_COLORSPACE_GAMMA
+        rgb_y = LinearToGammaSpace(rgb_y);
+        rgb_c = LinearToGammaSpace(rgb_c);
+    #endif
+
+        // Convertion and subsampling
+        return dot(kY, rgb_y);
+    }
+
+    fixed4 frag_encode2(v2f_img i) : SV_Target
+    {
+        float sw = _ScreenParams.x;     // Screen width
+        float pw = _ScreenParams.z - 1; // Pixel width
+
+        sw /= 2;
+        pw *= 2;
+
+        // RGB to YCbCr convertion matrix
+        const half3 kY  = half3( 0.299   ,  0.587   ,  0.114   );
+        const half3 kCB = half3(-0.168736, -0.331264,  0.5     );
+        const half3 kCR = half3( 0.5     , -0.418688, -0.081312);
+
+        // 0: even column, 1: odd column
+        half odd = frac(i.uv.x * sw * 0.5) > 0.5;
+
+        // Calculate UV for chroma componetns.
+        // It's between the even and odd columns.
+        float2 uv_c = i.uv.xy;
+        uv_c.x = (floor(uv_c.x * sw * 0.5) * 2 + 1) * pw;
+
+        // Sample the source texture.
+        half3 rgb_y = tex2D(_MainTex, i.uv).rgb;
+        half3 rgb_c = tex2D(_MainTex, uv_c).rgb;
+
+    #if !UNITY_COLORSPACE_GAMMA
+        rgb_y = LinearToGammaSpace(rgb_y);
+        rgb_c = LinearToGammaSpace(rgb_c);
+    #endif
+
+        // Convertion and subsampling
+        return dot(lerp(kCB, kCR, odd), rgb_c) + 0.5;
+    }
+
     // Sample luma-chroma textures and convert to RGB
     half3 DecodeHistory(float2 uvLuma, float2 uvCb, float2 uvCr, sampler2D lumaTex, sampler2D chromaTex)
     {
@@ -120,6 +185,9 @@ Shader "Hidden/Kino/Slitscan"
         float sw = _MainTex_TexelSize.z; // Texture width
         float pw = _MainTex_TexelSize.x; // Texel width
 
+        sw /= 2;
+        pw *= 2;
+
         // UV for luma
         float2 uvLuma = i.uv;
 
@@ -154,7 +222,16 @@ Shader "Hidden/Kino/Slitscan"
             CGPROGRAM
             #pragma multi_compile _ UNITY_COLORSPACE_GAMMA
             #pragma vertex vert_img
-            #pragma fragment frag_encode
+            #pragma fragment frag_encode1
+            #pragma target 3.0
+            ENDCG
+        }
+        Pass
+        {
+            CGPROGRAM
+            #pragma multi_compile _ UNITY_COLORSPACE_GAMMA
+            #pragma vertex vert_img
+            #pragma fragment frag_encode2
             #pragma target 3.0
             ENDCG
         }

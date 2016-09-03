@@ -29,7 +29,7 @@ namespace Kino
 
                 if (chromaTexture == null)
                 {
-                    chromaTexture = RenderTexture.GetTemporary(width, height, 0, RenderTextureFormat.R8);
+                    chromaTexture = RenderTexture.GetTemporary(width/2, height/2, 0, RenderTextureFormat.R8);
                     chromaTexture.filterMode = FilterMode.Point;
                     chromaTexture.wrapMode = TextureWrapMode.Clamp;
                 }
@@ -75,11 +75,8 @@ namespace Kino
             var frame = _history[_lastFrame];
             frame.Prepare(source.width, source.height);
 
-            _mrt[0] = frame.lumaTexture.colorBuffer;
-            _mrt[1] = frame.chromaTexture.colorBuffer;
-
-            Graphics.SetRenderTarget(_mrt, frame.lumaTexture.depthBuffer);
-            Graphics.Blit(source, _material, 0);
+            Graphics.Blit(source, frame.lumaTexture, _material, 0);
+            Graphics.Blit(source, frame.chromaTexture, _material, 1);
         }
 
         Frame GetFrameRelative(int offset)
@@ -156,7 +153,7 @@ namespace Kino
                 _material.SetTexture("_ChromaTexture3", frame3.chromaTexture);
 
                 _material.SetFloat("_SliceOffset", 2.0f * i / _slices + sliceWidth - 1);
-                _material.SetPass(1);
+                _material.SetPass(2);
 
                 Graphics.DrawMeshNow(_mesh, Matrix4x4.identity);
             }
