@@ -77,8 +77,8 @@ Shader "Hidden/Kino/Slitscan"
         float3 texcoord : TEXCOORD0;
     };
 
-    float _SliceScale;
-    float _SliceOffset;
+    float _SliceWidth;
+    float _SliceNumber;
 
     fixed3 SampleYCgCo(float2 uv, sampler2D yTex, sampler2D cgTex, sampler2D coTex)
     {
@@ -92,7 +92,9 @@ Shader "Hidden/Kino/Slitscan"
     v2f vert_decode(appdata v)
     {
         float x = v.vertex.x * 2;
-        float y = v.vertex.y * 2 * _SliceScale + _SliceOffset;
+        float y = v.vertex.y * 2 + 1;
+
+        y = _SliceWidth * (y * 5 + _SliceNumber * 2 - 2) - 1;
 
         v2f o;
         o.vertex = float4(x, y, 1, 1);
@@ -103,17 +105,17 @@ Shader "Hidden/Kino/Slitscan"
     half4 frag_decode(v2f i) : SV_Target
     {
         float2 uv = i.texcoord.xz;
-        float selector = i.texcoord.y * 4;
+        float selector = i.texcoord.y * 5;
 
         fixed3 c0 = SampleYCgCo(uv, _YTexture0, _CgTexture0, _CoTexture0);
         fixed3 c1 = SampleYCgCo(uv, _YTexture1, _CgTexture1, _CoTexture1);
         fixed3 c2 = SampleYCgCo(uv, _YTexture2, _CgTexture2, _CoTexture2);
         fixed3 c3 = SampleYCgCo(uv, _YTexture3, _CgTexture3, _CoTexture3);
 
-        fixed3 color = lerp(c0, c1, selector > 1);
-        color = lerp(color, c2, selector > 2);
-        color = lerp(color, c3, selector > 3);
-        return half4(color, 1);
+        fixed3 color = lerp(c0, c1, saturate(selector - 1));
+        color = lerp(color, c2, saturate(selector - 2));
+        color = lerp(color, c3, saturate(selector - 3));
+        return half4(color, saturate(selector));
     }
 
     ENDCG
@@ -139,6 +141,7 @@ Shader "Hidden/Kino/Slitscan"
         }
         Pass
         {
+            Blend SrcAlpha OneMinusSrcAlpha
             CGPROGRAM
             #pragma vertex vert_decode
             #pragma fragment frag_decode

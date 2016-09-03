@@ -8,7 +8,9 @@ namespace Kino
     {
         #region Editable properties
 
-        [SerializeField, Range(16, 128)] int _slices = 128;
+        const int kMaxSlices = 128;
+
+        [SerializeField, Range(16, kMaxSlices)] int _slices = 128;
 
         #endregion
 
@@ -30,7 +32,7 @@ namespace Kino
 
         void AppendFrame(RenderTexture source)
         {
-            _lastFrame = (_lastFrame + 1) % _slices;
+            _lastFrame = (_lastFrame + 1) % kMaxSlices;
 
             var frame = _history[_lastFrame];
             frame.Prepare(source.width, source.height);
@@ -45,7 +47,7 @@ namespace Kino
 
         Frame GetFrameRelative(int offset)
         {
-            var i = (_lastFrame + offset + _slices) % _slices;
+            var i = (_lastFrame + offset + kMaxSlices + 1) % kMaxSlices;
             return _history[i];
         }
 
@@ -63,8 +65,8 @@ namespace Kino
 
             if (_history == null)
             {
-                _history = new Frame[_slices];
-                for (var i = 0; i < _slices; i++)
+                _history = new Frame[kMaxSlices];
+                for (var i = 0; i < kMaxSlices; i++)
                     _history[i] = new Frame();
             }
 
@@ -94,10 +96,10 @@ namespace Kino
 
             RenderTexture.active = destination;
 
-            var sliceWidth = 4.0f / _slices;
-            _material.SetFloat("_SliceScale", sliceWidth);
+            var slices = Mathf.Max(_slices / 4, 1) * 4;
+            _material.SetFloat("_SliceWidth", 1.0f / slices);
 
-            for (var i = 0; i < _slices; i += 4)
+            for (var i = 0; i < slices; i += 4)
             {
                 var frame0 = GetFrameRelative(i + 0);
                 var frame1 = GetFrameRelative(i + 1);
@@ -121,7 +123,7 @@ namespace Kino
                 _material.SetTexture("_CoTexture2", frame2.coTexture);
                 _material.SetTexture("_CoTexture3", frame3.coTexture);
 
-                _material.SetFloat("_SliceOffset", 2.0f * i / _slices + sliceWidth - 1);
+                _material.SetFloat("_SliceNumber", i);
                 _material.SetPass(2);
 
                 Graphics.DrawMeshNow(_mesh, Matrix4x4.identity);
