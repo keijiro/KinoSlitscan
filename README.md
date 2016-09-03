@@ -20,8 +20,8 @@ Performance
 a lot of video memory to store frame history. For example, if the screen
 resolution is set to 1920x1080, it allocates about 300 MiB of video memory.
 
-Also it increases draw call count. It may affect CPU performance in some
-situations.
+Also it increases draw call count (from 10 to 30). Thus, it may affect CPU
+performance in some cases.
 
 License
 -------
