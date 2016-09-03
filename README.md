@@ -2,7 +2,7 @@ Kino/Slitscan
 =============
 
 *Slitscan* is an image effect for Unity that simulates [slit-scan effect]
-[Wikipedia].
+[Wikipedia] in real time.
 
 ![gif](http://67.media.tumblr.com/ac4871c151023e1297f505198dd3c654/tumblr_ocxowaWfD01qio469o1_320.gif)
 ![gif](http://67.media.tumblr.com/89ff943410b2ec25cab1f67120b9461a/tumblr_ocxowaWfD01qio469o2_320.gif)
@@ -11,15 +11,17 @@ Kino/Slitscan
 System Requirement
 ------------------
 
-Unity 5.4 or later
+- Unity 5.4 or later
 
+Performance
+-----------
 
-About Performance
------------------
+*Slitscan* is quite GPU intensive despite its simpleness. Especially, it spends
+a lot of video memory to store frame history. For example, if the screen
+resolution is set to 1920x1080, it allocates about 300 MiB of video memory.
 
-*Slitscan* is quite GPU intensive despite its simpleness. It requires about
-300 MiB of video memory to store frame history with 1920x1080 resolution.
-Also the draw call count will be inceased by 30.
+Also it increases draw call count. It may affect CPU performance in some
+situations.
 
 License
 -------
